@@ -203,8 +203,8 @@ def depth_first_search(grid_size, start, goal, obstacles, costFn, logger):
     # Choose a proper container yourself from
     # OrderedSet, Stack, Queue, PriorityQueue
     # for the open set and closed set.
-    open_set = OrderedSet()
-    closed_set = OrderedSet()
+    open_set = Stack()                              ## Changed to Stack to preform LIFO
+    closed_set = Stack()
     ##########################################
 
     ##########################################
@@ -229,6 +229,35 @@ def depth_first_search(grid_size, start, goal, obstacles, costFn, logger):
     # ----------------------------------------
 #############################################################################
 
+    # Pushing start to open set
+    open_set.add(start)
+
+    # The search loop
+    while open_set:
+        # Variable to hold the current position
+        current = open_set.pop()
+
+        if current == goal:
+            cell = goal
+            while cell != start:
+                row, col = cell
+                movement.append(actions[row][col])
+                cell = parent[row][col]
+            movement.reverse()
+            return movement, closed_set
+
+        closed_set.add(current)        # Add current to closed set (mark those cells visited)
+
+        for dr, dc in ACTIONS:
+            new_row = current[0] + dr
+            new_col = current[1] + dc
+            neighbor = (new_row, new_col)
+
+            if 0 <= new_row < n_rows and 0 <= new_col < n_cols:
+                if neighbor not in closed_set and neighbor not in open_set and neighbor not in obstacles:
+                    parent[new_row][new_col] = current
+                    actions[new_row][new_col] = (dr, dc)
+                    open_set.add(neighbor)
 #############################################################################
     return movement, closed_set
 
@@ -250,7 +279,7 @@ def breadth_first_search(grid_size, start, goal, obstacles, costFn, logger):
     # Choose a proper container yourself from
     # OrderedSet, Stack, Queue, PriorityQueue
     # for the open set and closed set.
-    open_set = OrderedSet()
+    open_set = Queue()
     closed_set = OrderedSet()
     ##########################################
 
@@ -275,7 +304,34 @@ def breadth_first_search(grid_size, start, goal, obstacles, costFn, logger):
     # finish the code below
     # ----------------------------------------
 #############################################################################
+    open_set.add(start)
 
+    # The search loop
+    while open_set:
+        # Variable to hold the current position
+        current = open_set.pop()
+
+        if current == goal:
+            cell = goal
+            while cell != start:
+                row, col = cell
+                movement.append(actions[row][col])
+                cell = parent[row][col]
+            movement.reverse()
+            return movement, closed_set
+
+        closed_set.add(current)        # Add current to closed set (mark those cells visited)
+
+        for dr, dc in ACTIONS:
+            new_row = current[0] + dr
+            new_col = current[1] + dc
+            neighbor = (new_row, new_col)
+
+            if 0 <= new_row < n_rows and 0 <= new_col < n_cols:
+                if neighbor not in closed_set and neighbor not in open_set and neighbor not in obstacles:
+                    parent[new_row][new_col] = current
+                    actions[new_row][new_col] = (dr, dc)
+                    open_set.add(neighbor)
 #############################################################################
     return movement, closed_set
 
@@ -298,7 +354,7 @@ def uniform_cost_search(grid_size, start, goal, obstacles, costFn, logger):
     # Choose a proper container yourself from
     # OrderedSet, Stack, Queue, PriorityQueue
     # for the open set and closed set.
-    open_set = OrderedSet()
+    open_set = PriorityQueue()
     closed_set = OrderedSet()
     ##########################################
 
@@ -317,6 +373,10 @@ def uniform_cost_search(grid_size, start, goal, obstacles, costFn, logger):
     actions = [ # the action that the parent took to reach the cell
         [None for __ in range(n_cols)] for _ in range(n_rows)
     ]
+    cost = [
+    [float('inf') for __ in range(n_cols)] for _ in range(n_rows)
+]
+    cost[start_row][start_col] = 0
 
     movement = []
     # ----------------------------------------
@@ -324,6 +384,46 @@ def uniform_cost_search(grid_size, start, goal, obstacles, costFn, logger):
     # ----------------------------------------
 #############################################################################
 
+    open_set.put(start, 0)
+
+    # The search loop
+    while open_set:
+        current, _ = open_set.pop()
+
+        # Goal check after popping
+        if current == goal:
+            cell = goal
+            while cell != start:
+                row, col = cell
+                movement.append(actions[row][col])
+                cell = parent[row][col]
+            movement.reverse()
+            break
+
+        closed_set.add(current)
+
+        for dr, dc in ACTIONS:
+            new_row = current[0] + dr
+            new_col = current[1] + dc
+            neighbor = (new_row, new_col)
+
+            if 0 <= new_row < n_rows and 0 <= new_col < n_cols:
+                if neighbor not in obstacles:
+                    new_cost = cost[current[0]][current[1]] + costFn(neighbor)
+
+                    if neighbor not in closed_set:
+                        if neighbor not in open_set:
+                            # child not in OPEN or CLOSED 
+                            cost[new_row][new_col] = new_cost
+                            parent[new_row][new_col] = current
+                            actions[new_row][new_col] = (dr, dc)
+                            open_set.put(neighbor, new_cost)
+                        elif new_cost < cost[new_row][new_col]:
+                            # child in OPEN with higher cost
+                            cost[new_row][new_col] = new_cost
+                            parent[new_row][new_col] = current
+                            actions[new_row][new_col] = (dr, dc)
+                            open_set.put(neighbor, new_cost)
 #############################################################################
     return movement, closed_set
 
@@ -345,7 +445,7 @@ def astar_search(grid_size, start, goal, obstacles, costFn, logger):
     # Choose a proper container yourself from
     # OrderedSet, Stack, Queue, PriorityQueue
     # for the open set and closed set.
-    open_set = OrderedSet()
+    open_set = PriorityQueue(order="min", f=lambda v: v.f)
     closed_set = OrderedSet()
     ##########################################
 
@@ -365,16 +465,124 @@ def astar_search(grid_size, start, goal, obstacles, costFn, logger):
         [None for __ in range(n_cols)] for _ in range(n_rows)
     ]
 
+    cost = [
+        [float('inf') for __ in range(n_cols)] for _ in range(n_rows)
+    ]
+    cost[start_row][start_col] = 0
+
     movement = []
 
     # ----------------------------------------
     # finish the code below to implement a Manhattan distance heuristic
     # ----------------------------------------
-    def heuristic(row, col):
 #############################################################################
-        pass
+    def heuristic(row, col):
+        return abs(row - goal_row) + abs(col - goal_col)
+    
+    open_set.put(start, Value(f=heuristic(start_row, start_col), g=0))
+
+    while open_set:
+        current, _ = open_set.pop()
+
+        if current == goal:
+            cell = goal
+            while cell != start:
+                row, col = cell
+                movement.append(actions[row][col])
+                cell = parent[row][col]
+            movement.reverse()
+            break
+
+        closed_set.add(current)
+
+        for dr, dc in ACTIONS:
+            new_row = current[0] + dr
+            new_col = current[1] + dc
+            neighbor = (new_row, new_col)
+
+            if 0 <= new_row < n_rows and 0 <= new_col < n_cols:
+                if neighbor not in obstacles and neighbor not in closed_set:
+                    new_g = cost[current[0]][current[1]] + costFn(neighbor)
+                    new_f = new_g + heuristic(new_row, new_col)
+
+                    if neighbor not in open_set:
+                        cost[new_row][new_col] = new_g
+                        parent[new_row][new_col] = current
+                        actions[new_row][new_col] = (dr, dc)
+                        open_set.put(neighbor, Value(f=new_f, g=new_g))
+                    elif new_g < cost[new_row][new_col]:
+                        cost[new_row][new_col] = new_g
+                        parent[new_row][new_col] = current
+                        actions[new_row][new_col] = (dr, dc)
+                        open_set.put(neighbor, Value(f=new_f, g=new_g))
 #############################################################################
     return movement, closed_set
+
+def astar_search_weighted(alpha):
+    """Returns a weighted A* search function using h'(s) = alpha * h(s)."""
+    def search(grid_size, start, goal, obstacles, costFn, logger):
+        n_rows, n_cols = grid_size
+        start_row, start_col = start
+        goal_row, goal_col = goal
+
+        open_set = PriorityQueue(order="min", f=lambda v: v.f)
+        closed_set = OrderedSet()
+
+        closed_set.logger = logger
+        logger.closed_set = closed_set
+        open_set.logger = logger
+        logger.open_set = open_set
+
+        parent = [[None for __ in range(n_cols)] for _ in range(n_rows)]
+        actions = [[None for __ in range(n_cols)] for _ in range(n_rows)]
+        cost = [[float('inf') for __ in range(n_cols)] for _ in range(n_rows)]
+        cost[start_row][start_col] = 0
+
+        movement = []
+
+        def heuristic(row, col):
+            return alpha * (abs(row - goal_row) + abs(col - goal_col))
+
+        open_set.put(start, Value(f=heuristic(start_row, start_col), g=0))
+
+        while open_set:
+            current, _ = open_set.pop()
+
+            if current == goal:
+                cell = goal
+                while cell != start:
+                    row, col = cell
+                    movement.append(actions[row][col])
+                    cell = parent[row][col]
+                movement.reverse()
+                break
+
+            closed_set.add(current)
+
+            for dr, dc in ACTIONS:
+                new_row = current[0] + dr
+                new_col = current[1] + dc
+                neighbor = (new_row, new_col)
+
+                if 0 <= new_row < n_rows and 0 <= new_col < n_cols:
+                    if neighbor not in obstacles and neighbor not in closed_set:
+                        new_g = cost[current[0]][current[1]] + costFn(neighbor)
+                        new_f = new_g + heuristic(new_row, new_col)
+
+                        if neighbor not in open_set:
+                            cost[new_row][new_col] = new_g
+                            parent[new_row][new_col] = current
+                            actions[new_row][new_col] = (dr, dc)
+                            open_set.put(neighbor, Value(f=new_f, g=new_g))
+                        elif new_g < cost[new_row][new_col]:
+                            cost[new_row][new_col] = new_g
+                            parent[new_row][new_col] = current
+                            actions[new_row][new_col] = (dr, dc)
+                            open_set.put(neighbor, Value(f=new_f, g=new_g))
+
+        return movement, closed_set
+    return search
+
 
 if __name__ == "__main__":
     # make sure actions and cost are defined correctly
@@ -387,7 +595,9 @@ if __name__ == "__main__":
         "Breadth-First Search": breadth_first_search,
         "Depth-First Search": depth_first_search,
         "Uniform Cost Search": uniform_cost_search,
-        "A* Search": astar_search
+        "A* Search": astar_search,
+        "A* Search (α=1.5)": astar_search_weighted(1.5),
+        "A* Search (α=2.0)": astar_search_weighted(2.0),
     }
 
     root = tk.Tk()
